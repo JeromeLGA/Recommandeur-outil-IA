@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recommandeur d'Outils IA</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <body class="bg-gray-50 min-h-screen p-8">
+        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
+            
+            <h1 class="text-4xl font-bold text-gray-900 mb-2">Trouvez l'outil IA parfait</h1>
+            <p class="text-gray-600 mb-8">Répondez à 3 questions simples et découvrez l'outil qui vous correspond</p>
+
+            <form class="space-y-6">
+                
+                <!-- Question 1 -->
+                <div>
+                    <label for="domaine" class="block text-sm font-semibold text-gray-700 mb-3">
+                        1. Quel est votre domaine d'utilisation ?
+                    </label>
+                    <select id="domaine" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">-- Choisir --</option>
+                        <option value="redaction">Rédaction & Texte</option>
+                        <option value="images">Images & Design</option>
+                        <option value="video">Vidéo & Avatar</option>
+                        <option value="automatisation">Automatisation</option>
+                        <option value="developpement">Développement</option>
+                    </select>
+                </div>
+
+                <!-- Question 2 -->
+                <div>
+                    <label for="technicite" class="block text-sm font-semibold text-gray-700 mb-3">
+                        2. Quel est votre niveau de technicité ?
+                    </label>
+                    <select id="technicite" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">-- Choisir --</option>
+                        <option value="debutant">Débutant</option>
+                        <option value="intermediaire">Intermédiaire</option>
+                        <option value="expert">Expert</option>
+                    </select>
+                </div>
+
+                <!-- Question 3 -->
+                <div>
+                    <label for="temps" class="block text-sm font-semibold text-gray-700 mb-3">
+                        3. Combien de temps pouvez-vous y consacrer ?
+                    </label>
+                    <select id="temps" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">-- Choisir --</option>
+                        <option value="rapide">Rapide (< 1h)</option>
+                        <option value="moyen">Moyen (1-5h)</option>
+                        <option value="long">Long (5h+)</option>
+                    </select>
+                </div>
+
+                <!-- Bouton -->
+                <button id="bouton" type="button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-md transition">
+                    Voir ma recommandation
+                </button>
+
+            <!-- Zone pour afficher la recommandation -->
+                <div id="resultat" class="mt-8 p-6 bg-green-50 border border-green-200 rounded-lg hidden">
+                    <h2 class="text-2xl font-bold text-green-900 mb-2">Voilà ta recommandation !</h2>
+                    <p id="texte-resultat" class="text-gray-700"></p>
+                </div>
+            </form>
+        </div>
+    
+    <script>
+        // 1. INITIALISER FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyBFEV4mTUJEi-YLoaWDsIbZeRs9QsD_Hns",
+            authDomain: "recommandeur-outils-ia.firebaseapp.com",
+            projectId: "recommandeur-outils-ia",
+            storageBucket: "recommandeur-outils-ia.firebasestorage.app",
+            messagingSenderId: "626381880889",
+            appId: "1:626381880889:web:64f59fd42540c8e93d57e8"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        let db = firebase.firestore();
+
+        // 2. CHARGER LES OUTILS DEPUIS FIRESTORE
+        let outils = [];
+
+        db.collection('outils').get()
+            .then(snapshot => {
+                for (let doc of snapshot.docs) {
+                    outils.push(doc.data());
+                }
+                console.log('✅ Outils chargés depuis Firestore :', outils.length);
+            })
+            .catch(error => console.error('❌ Erreur Firestore :', error));
+        
+        // 2. FONCTION DE RECOMMANDATION (même qu'avant)
+        function recommander(domaine, technicite, temps) {
+            let outils_recommandes = [];
+            
+            let categorieMapping = {
+                'redaction': 'Texte & Rédaction',
+                'images': 'Images & Design',
+                'video': 'Vidéo & Avatar',
+                'automatisation': 'Automatisation',
+                'developpement': 'Développement'
+            };
+            
+            for (let outil of outils) {
+                let categorie_attendue = categorieMapping[domaine];
+                
+                if (outil.category === categorie_attendue) {
+                    let complexite_max = {
+                        'debutant': 3,
+                        'intermediaire': 6,
+                        'expert': 10
+                    };
+                    
+                    if (outil.complexity <= complexite_max[technicite]) {
+                        outils_recommandes.push(outil);
+                    }
+                }
+            }
+            
+            outils_recommandes.sort((a, b) => b.quality_score - a.quality_score);
+            return outils_recommandes.slice(0, 3);
+        }    
+        
+        // TON CODE JAVASCRIPT ACTUEL (le bouton, les événements, etc.)
+                          
+            let bouton = document.getElementById('bouton');
+            
+            bouton.addEventListener('click', function() {
+                let domaine = document.getElementById('domaine').value;
+                let technicite = document.getElementById('technicite').value;
+                let temps = document.getElementById('temps').value;
+                
+                // Vérifier que tout est rempli
+                if (domaine === '' || technicite === '' || temps === '') {
+                    alert('⚠️ Merci de répondre à toutes les questions !');
+                    return;
+                }
+                
+              // Afficher le résultat dans la page
+                let resultat = document.getElementById('resultat');
+                let texteResultat = document.getElementById('texte-resultat');
+
+                // APPELER LA FONCTION DE RECOMMANDATION
+                let recommandations = recommander(domaine, technicite, temps);
+
+                // AFFICHER LES RECOMMANDATIONS (pas les paramètres)
+                if (recommandations.length === 0) {
+                    texteResultat.innerHTML = "❌ Aucun outil trouvé pour vos critères.";
+                } else {
+                    let html = "<h3 class='text-xl font-bold mb-4'>🎯 Top 3 outils recommandés :</h3>";
+                    for (let outil of recommandations) {
+                        html += `
+                            <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
+                                <p class="font-bold text-blue-900">${outil.name}</p>
+                                <p class="text-sm text-gray-700">${outil.description}</p>
+                                <p class="text-xs text-gray-600 mt-2">Complexité: ${outil.complexity}/10 | Qualité: ${outil.quality_score}/10</p>
+                                <a href="${outil.website}" target="_blank" class="text-blue-600 text-sm mt-2 inline-block">Voir le site →</a>
+                            </div>
+                        `;
+                    }
+                    texteResultat.innerHTML = html;
+                }
+
+                resultat.classList.remove('hidden');
+            });
+        </script>
+</body>
+
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Import des outils vers Firestore</title>
+</head>
+<body>
+    <h1>Import des outils IA vers Firestore</h1>
+    <button id="btn-import">Lancer l'import</button>
+    <div id="log" style="margin-top: 20px; font-family: monospace;"></div>
+
+    <!-- Firebase via CDN (version "compat" = compatible navigateur simple) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // 1. CONFIG FIREBASE (tes clés personnelles)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBFEV4mTUJEi-YloaWDsIbZeRs9QsD_Hns",
+            authDomain: "recommandeur-outils-ia.firebaseapp.com",
+            projectId: "recommandeur-outils-ia",
+            storageBucket: "recommandeur-outils-ia.firebasestorage.app",
+            messagingSenderId: "626381880889",
+            appId: "1:626381880889:web:64f59fd42540c8e93d57e8"
+        };
+
+        // 2. INITIALISER FIREBASE
+        firebase.initializeApp(firebaseConfig);
+
+        // 3. CRÉER UNE RÉFÉRENCE À FIRESTORE
+        let db = firebase.firestore();
+
+        // 4. ZONE DE LOG (pour afficher les messages à l'écran)
+        let logDiv = document.getElementById('log');
+
+        function afficherLog(message) {
+            logDiv.innerHTML += message + '<br>';
+        }
+
+        // 5. BOUTON D'IMPORT
+        document.getElementById('btn-import').addEventListener('click', function() {
+            afficherLog('⏳ Chargement du fichier data.json...');
+
+            // 6. CHARGER LE JSON LOCAL
+            fetch('data.json')
+                .then(response => response.json())
+                .then(data => {
+                    afficherLog('✅ ' + data.length + ' outils trouvés dans data.json');
+                    afficherLog('⏳ Import en cours...');
+
+                    // 7. ENVOYER CHAQUE OUTIL DANS FIRESTORE
+                    let compteur = 0;
+
+                    for (let outil of data) {
+                        db.collection('outils').doc(outil.id).set(outil)
+                            .then(() => {
+                                compteur++;
+                                afficherLog('✅ ' + compteur + ' - ' + outil.name + ' importé');
+
+                                if (compteur === data.length) {
+                                    afficherLog('🎉 IMPORT TERMINÉ ! ' + compteur + ' outils dans Firestore');
+                                }
+                            })
+                            .catch(error => {
+                                afficherLog('❌ Erreur pour ' + outil.name + ' : ' + error.message);
+                            });
+                    }
+                })
+                .catch(error => {
+                    afficherLog('❌ Erreur de chargement du JSON : ' + error.message);
+                });
+        });
+    </script>
+</body>
+</html>
