@@ -210,13 +210,17 @@
                 const logoURL = await uploadLogoEtRecupererLien(logoFile);
 
                 // 2. On prépare les données (sans citations !)
+                // Dans ton addForm.addEventListener, récupère les valeurs
                 const outilData = {
                     name: document.getElementById('new-name').value,
                     category: document.getElementById('new-category').value,
                     website: document.getElementById('new-website').value,
                     complexity: parseInt(document.getElementById('new-complexity').value),
                     description: document.getElementById('new-description').value,
-                    logo_url: logoURL || "" 
+                    // NOUVEAUX CHAMPS
+                    pro_price: document.getElementById('new-price').value || "À vérifier",
+                    has_free_tier: document.getElementById('new-free').checked,
+                    votes: 0
                 };
 
                 // 3. Enregistrement Firestore

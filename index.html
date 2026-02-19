@@ -57,6 +57,12 @@
                     <option value="long">Long (5h+)</option>
                 </select>
             </div>
+            <div class="flex items-center space-x-3 mb-6 p-3 bg-blue-50 rounded-md border border-blue-100">
+                <input type="checkbox" id="free-only" class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
+                <label for="free-only" class="text-sm font-medium text-blue-900 cursor-pointer">
+                    Afficher uniquement les outils avec une version **Gratuite / Freemium**
+                </label>
+            </div>
 
             <button id="bouton" type="button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-md transition">
                 Voir ma recommandation
@@ -86,35 +92,38 @@
         .catch(error => console.error('❌ Erreur Firestore :', error));
 
     // 3. L'ALGORITHME DE RECOMMANDATION
-    function recommander(domaine, technicite, temps) {
-        let categorieMapping = {
-            'redaction': 'Texte & Rédaction',
-            'images': 'Images & Design',
-            'video': 'Vidéo & Avatar',
-            'audio': 'Audio & Voix',
-            'automatisation': 'Automatisation',
-            'developpement': 'Développement'
-        };
+    function recommander(domaine, technicite, temps, freeOnly) {
+    let outils_recommandes = [];
+    
+    // Ton mapping existant 
+    const categorieMapping = {
+        'redaction': 'Texte & Rédaction',
+        'images': 'Images & Design',
+        'video': 'Vidéo & Avatar',
+        'audio': 'Audio & Voix',
+        'automatisation': 'Automatisation',
+        'developpement': 'Développement'
+    };
 
-        const complexite_max = {
-            'debutant': 3,
-            'intermediaire': 6,
-            'expert': 10
-        };
-
-        let categorie_attendue = categorieMapping[domaine];
+    const complexite_max = { 'debutant': 3, 'intermediaire': 6, 'expert': 10 };
+    const categorie_attendue = categorieMapping[domaine];
+    
+    for (let outil of outils) {
+        const matchCategorie = outil.category === categorie_attendue;
+        const matchComplexite = outil.complexity <= complexite_max[technicite];
         
-        // Filtrage
-        let outils_recommandes = outils.filter(outil => {
-            return outil.category === categorie_attendue && 
-                   outil.complexity <= complexite_max[technicite];
-        });
+        // FILTRE S8 : Si freeOnly est coché, on vérifie has_free_tier. Sinon, on laisse passer.
+        const matchFree = freeOnly ? outil.has_free_tier === true : true;
 
-        // Tri par score de qualité ou votes
-        outils_recommandes.sort((a, b) => (b.votes || 0) - (a.votes || 0));
-
-        return outils_recommandes.slice(0, 3);
+        if (matchCategorie && matchComplexite && matchFree) {
+            outils_recommandes.push(outil);
+        }
     }
+    
+    // Tri par score ou votes 
+    outils_recommandes.sort((a, b) => (b.votes || 0) - (a.votes || 0));
+    return outils_recommandes.slice(0, 3);
+}
 
     // 4. ÉCOUTEUR DU BOUTON
     const bouton = document.getElementById('bouton');
@@ -122,37 +131,52 @@
     const texteResultat = document.getElementById('texte-resultat');
 
     bouton.addEventListener('click', function() {
-        const domaine = document.getElementById('domaine').value;
-        const technicite = document.getElementById('technicite').value;
-        const temps = document.getElementById('temps').value;
+    const domaine = document.getElementById('domaine').value;
+    const technicite = document.getElementById('technicite').value;
+    const temps = document.getElementById('temps').value;
+    // On récupère si la case est cochée
+    const freeOnly = document.getElementById('free-only').checked;
 
-        if (!domaine || !technicite || !temps) {
-            alert('⚠️ Merci de répondre à toutes les questions !');
-            return;
-        }
+    if (domaine === '' || technicite === '' || temps === '') {
+        alert('⚠️ Merci de répondre à toutes les questions !');
+        return;
+    }
 
-        const recommandations = recommander(domaine, technicite, temps);
+    const resultat = document.getElementById('resultat');
+    const texteResultat = document.getElementById('texte-resultat');
 
-        if (recommandations.length === 0) {
-            texteResultat.innerHTML = "❌ Aucun outil trouvé pour vos critères.";
-        } else {
-            let html = "<h3 class='text-xl font-bold mb-4 text-blue-900'>🎯 Top outils recommandés :</h3>";
-            recommandations.forEach(outil => {
-                html += `
-                    <div class="mb-4 p-4 bg-white border border-blue-200 rounded-lg shadow-sm">
+    // APPELER LA FONCTION DE RECOMMANDATION (on passe freeOnly en paramètre)
+    const recommandations = recommander(domaine, technicite, temps, freeOnly);
+
+    if (recommandations.length === 0) {
+        texteResultat.innerHTML = "<p class='text-gray-600 italic'>❌ Aucun outil trouvé pour ces critères. Essaie d'élargir ta recherche ou de décocher le filtre gratuit.</p>";
+    } else {
+        let html = "<h3 class='text-xl font-bold mb-4 text-green-900'>🎯 Top outils recommandés :</h3>";
+        for (let outil of recommandations) {
+            // On affiche le prix s'il existe, sinon un texte par défaut
+            const prixAffiche = outil.pro_price || "Prix non renseigné";
+            
+            html += `
+                <div class="mb-4 p-4 bg-white border border-green-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-start mb-2">
                         <p class="font-bold text-lg text-blue-900">${outil.name}</p>
-                        <p class="text-sm text-gray-700 my-2">${outil.description}</p>
-                        <div class="flex justify-between items-center mt-3">
-                            <span class="text-xs font-medium bg-gray-100 px-2 py-1 rounded">Complexité: ${outil.complexity}/10</span>
-                            <a href="${outil.website}" target="_blank" class="text-blue-600 font-bold text-sm hover:underline">Voir le site →</a>
-                        </div>
+                        <span class="text-[10px] font-bold px-2 py-1 bg-blue-100 text-blue-700 rounded uppercase">
+                            Pro : ${prixAffiche}
+                        </span>
                     </div>
-                `;
-            });
-            texteResultat.innerHTML = html;
+                    <p class="text-sm text-gray-700 mb-3">${outil.description}</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-gray-500">Complexité: ${outil.complexity}/10</span>
+                        <a href="${outil.website}" target="_blank" class="text-blue-600 font-bold text-sm hover:underline">Voir le site →</a>
+                    </div>
+                </div>
+            `;
         }
-        resultat.classList.remove('hidden');
-    });
+        texteResultat.innerHTML = html;
+    }
+
+    resultat.classList.remove('hidden');
+});
     </script>
 </body>
 </html>
