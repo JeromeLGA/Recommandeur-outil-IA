@@ -5,8 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Connexion</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="config.js"></script> 
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+
+
+
+
+
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
 
@@ -30,48 +36,27 @@
     </div>
 
     <script>
-        // 1. Ta config Firebase (identique à index.html)
-        const firebaseConfig = {
-            apiKey: "AIzaSyBFEV4mTUJEi-YloaWDsIbZeRs9QsD_Hns",
-            authDomain: "recommandeur-outils-ia.firebaseapp.com",
-            projectId: "recommandeur-outils-ia",
-            storageBucket: "recommandeur-outils-ia.firebasestorage.app",
-            messagingSenderId: "626381880889",
-            appId: "1:626381880889:web:64f59fd42540c8e93d57e8"
-        };
+       firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
 
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
+            const loginForm = document.getElementById('login-form');
+            const errorMsg = document.getElementById('error-message');
 
-        // 2. Logique de connexion
-        const loginForm = document.getElementById('login-form');
-        const errorMsg = document.getElementById('error-message');
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
 
-        loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-
-            auth.signInWithEmailAndPassword(email, password)
-                .then((userCredential) => {
-                    console.log("Connecté !");
-                    // Pour l'instant, on affiche juste une alerte. 
-                    // En S6, on redirigera vers le dashboard.
-                    auth.signInWithEmailAndPassword(email, password)
-                        .then((userCredential) => {
-                            // Redirection vers le dashboard
-                            window.location.href = 'dashboard.html';
-                        })
-                        .catch((error) => {
-                            errorMsg.textContent = "Erreur : " + error.message;
-                            errorMsg.classList.remove('hidden');
-                        });
-                })
-                .catch((error) => {
-                    errorMsg.textContent = "Erreur : " + error.message;
-                    errorMsg.classList.remove('hidden');
-                });
-        });
+                auth.signInWithEmailAndPassword(email, password)
+                    .then(() => {
+                        window.location.href = 'dashboard.html';
+                    })
+                    .catch((error) => {
+                        errorMsg.textContent = "Erreur : " + error.message;
+                        errorMsg.classList.remove('hidden');
+                    });
+            });
+                
     </script>
 </body>
 </html>

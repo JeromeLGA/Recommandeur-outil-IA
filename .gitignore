@@ -2,6 +2,9 @@
 .DS_Store
 Thumbs.db
 
+# ma cle api google Cloud
+config.js
+
 # Environnements virtuels et dépendances (très lourd, ne jamais uploader)
 node_modules/
 venv/

@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="config.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 </head>
+
 <body class="bg-gray-50 min-h-screen">
 
     <nav class="bg-white shadow-sm p-4 flex justify-between items-center">
@@ -79,21 +81,14 @@
 
     <script>
         // Ta config Firebase habituelle
-        const firebaseConfig = {
-            apiKey: "AIzaSyBFEV4mTUJEi-YloaWDsIbZeRs9QsD_Hns",
-            authDomain: "recommandeur-outils-ia.firebaseapp.com",
-            projectId: "recommandeur-outils-ia",
-            storageBucket: "recommandeur-outils-ia.firebasestorage.app",
-            messagingSenderId: "626381880889",
-            appId: "1:626381880889:web:64f59fd42540c8e93d57e8"
-        };
-
         firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore(); //
-        const storage = firebase.storage(); // Initialisation du disque dur distant
-        let editMode = false;
-        let currentEditId = null;
+
+            const auth = firebase.auth();
+            const db = firebase.firestore();
+            const storage = firebase.storage();
+
+            let editMode = false;
+            let currentEditId = null;
 
 
         // LE VERROU : Vérifier si l'utilisateur est connecté
