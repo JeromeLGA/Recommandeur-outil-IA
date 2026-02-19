@@ -194,31 +194,44 @@
             formContainer.classList.toggle('hidden');
         }
 
-        addForm.addEventListener('submit', (e) => {
+        addForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const outilData = {
-                name: document.getElementById('new-name').value,
-                category: document.getElementById('new-category').value,
-                website: document.getElementById('new-website').value,
-                complexity: parseInt(document.getElementById('new-complexity').value),
-                description: document.getElementById('new-description').value
-            };
+            // On récupère les éléments sans les balises de citation
+            const logoFile = document.getElementById('new-logo').files[0];
+            const statusText = document.getElementById('upload-status');
+            
+            if (logoFile) statusText.classList.remove('hidden');
 
-            if (editMode) {
-                // CAS : MISE À JOUR 
-                db.collection('outils').doc(currentEditId).update(outilData)
-                    .then(() => {
-                        alert("✅ Outil mis à jour !");
-                        resetForm();
-                    });
-            } else {
-                // CAS : CRÉATION 
-                db.collection('outils').add(outilData)
-                    .then(() => {
-                        alert("✨ Nouvel outil ajouté !");
-                        resetForm();
-                    });
+            try {
+                // 1. On upload l'image d'abord
+                const logoURL = await uploadLogoEtRecupererLien(logoFile);
+
+                // 2. On prépare les données (sans citations !)
+                const outilData = {
+                    name: document.getElementById('new-name').value,
+                    category: document.getElementById('new-category').value,
+                    website: document.getElementById('new-website').value,
+                    complexity: parseInt(document.getElementById('new-complexity').value),
+                    description: document.getElementById('new-description').value,
+                    logo_url: logoURL || "" 
+                };
+
+                // 3. Enregistrement Firestore
+                if (editMode) {
+                    await db.collection('outils').doc(currentEditId).update(outilData);
+                    alert("✅ Outil mis à jour !");
+                } else {
+                    await db.collection('outils').add(outilData);
+                    alert("✨ Nouvel outil ajouté !");
+                }
+
+                resetForm();
+            } catch (error) {
+                console.error("Erreur S7 :", error);
+                alert("Une erreur est survenue lors de l'enregistrement.");
+            } finally {
+                statusText.classList.add('hidden');
             }
         });
 
@@ -237,7 +250,20 @@
             });
         });
 
-    
+    // FONCTION D'UPLOAD : Envoie l'image au Cloud Storage et récupère son URL
+        async function uploadLogoEtRecupererLien(file) {
+            if (!file) return null; // Si aucun fichier n'est sélectionné, on s'arrête là
+
+            // Création d'un nom unique avec l'heure actuelle pour éviter les doublons
+            const nomFichier = Date.now() + "-" + file.name;
+            const storageRef = storage.ref("logos/" + nomFichier);
+
+            // On attend que l'upload soit terminé (await)
+            const snapshot = await storageRef.put(file);
+            
+            // On récupère et on renvoie l'URL publique de l'image
+            return await snapshot.ref.getDownloadURL();
+        }
 
     </script>
 </body>
