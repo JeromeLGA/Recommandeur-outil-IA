@@ -5,273 +5,589 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- SDK Supabase via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Nos clés Supabase (fichier local protégé par .gitignore) -->
     <script src="config.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 </head>
 
 <body class="bg-gray-50 min-h-screen">
 
+    <!-- BARRE DE NAVIGATION -->
     <nav class="bg-white shadow-sm p-4 flex justify-between items-center">
-        <h1 class="text-xl font-bold text-gray-800">Panel Admin - Recommandeur IA</h1>
+        <h1 class="text-xl font-bold text-gray-800">Panel Admin — Recommandeur IA</h1>
         <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded text-sm hover:bg-red-600">Déconnexion</button>
     </nav>
 
     <div class="p-8 max-w-4xl mx-auto">
+
+        <!-- MESSAGE DE BIENVENUE -->
         <div id="welcome-message" class="bg-white p-6 rounded-lg shadow-md mb-6 hidden">
             <h2 class="text-2xl font-bold text-blue-900">Content de te revoir, Jérôme !</h2>
-            <p class="text-gray-600">Ici, tu vas pouvoir gérer tes <span id="tool-count" class="font-bold text-blue-600">...</span> outils IA.</p>        </div>
+            <p class="text-gray-600">Ici, tu vas pouvoir gérer tes <span id="tool-count" class="font-bold text-blue-600">...</span> outils IA.</p>
+        </div>
 
-  
+        <!-- FORMULAIRE AJOUT / MODIFICATION -->
+        <div id="form-container" class="bg-gray-100 p-6 rounded-lg mb-6 hidden">
+            <h3 id="form-titre" class="text-lg font-bold mb-4">Ajouter un nouvel outil</h3>
+            <form id="add-outil-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="text" id="new-name" placeholder="Nom de l'outil" class="p-2 border rounded" required>
+                <select id="new-category" class="p-2 border rounded" required>
+                    <option value="Texte & Rédaction">Texte & Rédaction</option>
+                    <option value="Images & Design">Images & Design</option>
+                    <option value="Vidéo & Avatar">Vidéo & Avatar</option>
+                    <option value="Audio & Voix">Audio & Voix</option>
+                    <option value="Automatisation">Automatisation</option>
+                    <option value="Développement">Développement</option>
+                </select>
+                <input type="text" id="new-website" placeholder="URL du site (https://...)" class="p-2 border rounded" required>
+                <input type="number" id="new-complexity" placeholder="Complexité (1-10)" class="p-2 border rounded" min="1" max="10" required>
+                <input type="text" id="new-price" placeholder="Prix Pro (ex: 20$/mois)" class="p-2 border rounded">
+                <div class="flex items-center space-x-2 p-2">
+                    <input type="checkbox" id="new-free" class="h-4 w-4 text-blue-600">
+                    <label for="new-free" class="text-sm text-gray-700">Dispose d'une version Gratuite / Freemium</label>
+                </div>
+                <textarea id="new-description" placeholder="Description courte" class="p-2 border rounded md:col-span-2" required></textarea>
 
-    <div id="form-container" class="bg-gray-100 p-6 rounded-lg mb-6 hidden">
-        <h3 class="text-lg font-bold mb-4">Ajouter un nouvel outil</h3>
-        <form id="add-outil-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input type="text" id="new-name" placeholder="Nom de l'outil" class="p-2 border rounded" required>
-            <select id="new-category" class="p-2 border rounded" required>
-                <option value="Texte & Rédaction">Texte & Rédaction</option>
-                <option value="Images & Design">Images & Design</option>
-                <option value="Vidéo & Avatar">Vidéo & Avatar</option>
-                <option value="Audio & Voix">Audio & Voix</option> <option value="Automatisation">Automatisation</option>
-                <option value="Automatisation">Automatisation</option>
-                <option value="Développement">Développement</option>
-            </select>
-            <input type="text" id="new-website" placeholder="URL du site" class="p-2 border rounded" required>
-            <input type="number" id="new-complexity" placeholder="Complexité (1-10)" class="p-2 border rounded" min="1" max="10" required>
-            <textarea id="new-description" placeholder="Description courte" class="p-2 border rounded md:col-span-2" required></textarea>
-            <div class="md:col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Logo de l'outil (PNG, SVG, JPG)</label>
-                <input type="file" id="new-logo" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                <p id="upload-status" class="text-xs text-blue-600 mt-1 hidden font-medium">⏳ Upload du logo en cours...</p>
+                <!-- Upload logo -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Logo de l'outil (PNG, SVG, JPG)</label>
+                    <input type="file" id="new-logo" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <p id="upload-status" class="text-xs text-blue-600 mt-1 hidden font-medium">⏳ Upload du logo en cours...</p>
+                </div>
+
+                <div class="md:col-span-2 flex justify-end gap-2">
+                    <button type="button" onclick="resetForm()" class="text-gray-500 px-4 py-2">Annuler</button>
+                    <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- PANNEAU IMPORT LOGOS EN MASSE -->
+        <div id="import-logos-container" class="bg-white border-2 border-dashed border-blue-300 rounded-lg p-6 mb-6 hidden">
+            <h3 class="text-lg font-bold text-gray-800 mb-1">Import logos en masse</h3>
+            <p class="text-sm text-gray-500 mb-4">
+                Nomme tes fichiers avec le nom de l'outil (ex: <code class="bg-gray-100 px-1 rounded">chatgpt.png</code>, <code class="bg-gray-100 px-1 rounded">midjourney.svg</code>).
+                Le système fait la correspondance automatiquement.
+            </p>
+
+            <!-- Zone de dépôt des fichiers -->
+            <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center mb-4 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                 onclick="document.getElementById('logos-batch').click()">
+                <div class="text-4xl mb-2">🖼️</div>
+                <p class="text-gray-600 font-medium">Clique ici ou glisse tes images</p>
+                <p class="text-xs text-gray-400 mt-1">PNG, JPG, SVG, WebP — plusieurs fichiers acceptés</p>
+                <input type="file" id="logos-batch" accept="image/*" multiple class="hidden">
             </div>
-            <div class="md:col-span-2 flex justify-end gap-2">
-                <button type="button" onclick="resetForm()" class="text-gray-500 px-4 py-2">Annuler</button> 
-                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded">Enregistrer</button> 
+
+            <!-- Résultats de l'analyse (avant import) -->
+            <div id="analyse-resultats" class="hidden mb-4">
+                <h4 class="font-semibold text-gray-700 mb-2">Analyse des fichiers :</h4>
+                <div id="analyse-liste" class="space-y-1 max-h-60 overflow-y-auto text-sm"></div>
+                <div id="analyse-resume" class="mt-3 text-sm font-medium"></div>
             </div>
-        </form>
-    </div>
 
+            <!-- Barre de progression pendant l'import -->
+            <div id="import-progression" class="hidden mb-4">
+                <div class="flex justify-between text-sm text-gray-600 mb-1">
+                    <span>Import en cours...</span>
+                    <span id="import-compteur">0 / 0</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                    <div id="import-barre" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
 
-
-        <div class="bg-white rounded-lg shadow-md overflow-hidden">
-            <div class="p-4 border-b flex justify-between items-center">
-                <h3 class="text-lg font-bold text-gray-800">Liste des outils IA</h3>
-                <button onclick="toggleForm()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">
-                    + Ajouter un outil
+            <div class="flex gap-2 justify-end">
+                <button onclick="toggleImportLogos()" class="text-gray-500 px-4 py-2 hover:text-gray-700">Fermer</button>
+                <button id="btn-lancer-import" onclick="lancerImportLogos()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    ⬆️ Lancer l'import
                 </button>
+            </div>
+        </div>
+
+        <!-- TABLEAU DES OUTILS -->
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="p-4 border-b flex flex-wrap gap-2 justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-800">Liste des outils IA</h3>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="exporterOutils()" class="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 text-sm">
+                        📤 Exporter les outils
+                    </button>
+                    <button onclick="toggleImportLogos()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm">
+                        🖼️ Import logos en masse
+                    </button>
+                    <button onclick="toggleForm()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">
+                        + Ajouter un outil
+                    </button>
+                </div>
             </div>
             <table class="w-full text-left">
                 <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
                     <tr>
+                        <th class="px-6 py-3">Logo</th>
                         <th class="px-6 py-3">Nom</th>
                         <th class="px-6 py-3">Catégorie</th>
                         <th class="px-6 py-3 text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody id="outils-list" class="divide-y divide-gray-100">
-                    </tbody>
+                <tbody id="outils-list" class="divide-y divide-gray-100"></tbody>
             </table>
-        </div>
-
-        <div class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center text-gray-400">
         </div>
     </div>
 
     <script>
-        // Ta config Firebase habituelle
-        firebase.initializeApp(firebaseConfig);
+        // 1. INITIALISATION SUPABASE
+        const { createClient } = supabase;
+        const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            const auth = firebase.auth();
-            const db = firebase.firestore();
-            const storage = firebase.storage();
+        // Variables pour le mode édition
+        let editMode = false;
+        let currentEditId = null;
 
-            let editMode = false;
-            let currentEditId = null;
+        // Couleurs des badges par catégorie
+        const categoriesCouleurs = {
+            'Texte & Rédaction': 'bg-blue-100 text-blue-800',
+            'Images & Design':   'bg-pink-100 text-pink-800',
+            'Vidéo & Avatar':    'bg-purple-100 text-purple-800',
+            'Automatisation':    'bg-orange-100 text-orange-800',
+            'Audio & Voix':      'bg-yellow-100 text-yellow-800',
+            'Développement':     'bg-green-100 text-green-800'
+        };
 
+        // 2. VERROU : vérifier que l'admin est connecté
+        //
+        // POURQUOI getSession() et pas onAuthStateChange() seul ?
+        // onAuthStateChange() se déclenche plusieurs fois au chargement,
+        // dont une première fois avec session = null AVANT que Supabase
+        // ait fini de vérifier le token. Cela provoquait une boucle :
+        // dashboard → admin → dashboard → admin...
+        //
+        // La bonne pratique : getSession() pour la vérification initiale,
+        // onAuthStateChange() uniquement pour détecter la déconnexion.
 
-        // LE VERROU : Vérifier si l'utilisateur est connecté
-        auth.onAuthStateChanged((user) => {
-            console.log("État de l'utilisateur :", user); // AJOUTE CECI
-            if (user) {
-                document.getElementById('welcome-message').classList.remove('hidden');
-            } else {
-                console.log("Redirection car utilisateur null");
+        db.auth.getSession().then(({ data: { session } }) => {
+            if (!session) {
+                // Pas de session → retour à la page de connexion
                 window.location.href = 'admin.html';
+            } else {
+                // Session valide → on affiche le dashboard
+                document.getElementById('welcome-message').classList.remove('hidden');
+                chargerOutilsAdmin();
             }
         });
-        // MA LISTE D'OUTIL IA : 
-        const outilsList = document.getElementById('outils-list');
 
-        function chargerOutilsAdmin() {
-            const categoriesCouleurs = {
-                'Texte & Rédaction': 'bg-blue-100 text-blue-800',
-                'Images & Design': 'bg-pink-100 text-pink-800',
-                'Vidéo & Avatar': 'bg-purple-100 text-purple-800',
-                'Automatisation': 'bg-orange-100 text-orange-800',
-                'Audio & Voix': 'bg-yellow-100 text-yellow-800', // Jaune pour l'audio
-                'Développement': 'bg-green-100 text-green-800'
-            };
-
-            db.collection('outils').get().then((snapshot) => {
-                const countElement = document.getElementById('tool-count');
-                 if (countElement) countElement.textContent = snapshot.size;
-                outilsList.innerHTML = ""; 
-                snapshot.forEach((doc) => {
-                    const outil = doc.data();
-                    const badgeClass = categoriesCouleurs[outil.category] || 'bg-gray-100 text-gray-800';
-                    
-                    outilsList.innerHTML += `
-                        <tr class="hover:bg-gray-50 transition-colors">
-                            <td class="px-6 py-4">
-                                <div class="text-sm font-bold text-gray-900">${outil.name}</div>
-                                <div class="text-xs text-gray-500 truncate max-w-xs">${outil.description}</div>
-                            </td>
-                            <td class="px-6 py-4">
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full ${badgeClass}">
-                                    ${outil.category}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 text-right text-sm font-medium">
-                                <button onclick="preparerModification('${doc.id}')" class="text-indigo-600 hover:text-indigo-900 mr-3">
-                                    ✎ Modifier
-                                </button>
-                                <button onclick="supprimerOutil('${doc.id}')" class="text-red-600 hover:text-red-900">
-                                    🗑 Supprimer
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                });
-            });
-        }
-        // Appeler la fonction une fois connecté
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                document.getElementById('welcome-message').classList.remove('hidden');
-                chargerOutilsAdmin(); // On lance le chargement
-            } else {
+        // On écoute uniquement la déconnexion pour rediriger si besoin
+        db.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_OUT') {
                 window.location.href = 'admin.html';
             }
         });
 
-        function supprimerOutil(id) {
-            if (confirm("🚨 Es-tu sûr de vouloir supprimer cet outil ? Cette action est irréversible.")) {
-                db.collection('outils').doc(id).delete()
-                    .then(() => {
-                        console.log("✅ Outil supprimé !");
-                        chargerOutilsAdmin(); // On rafraîchit la liste pour voir la disparition
-                    })
-                    .catch((error) => {
-                        console.error("❌ Erreur de suppression :", error);
-                        alert("Erreur de permissions. Vérifie tes règles Firestore !");
-                    });
-            }
-        }
-//test github//
-        function preparerModification(id) {
-            db.collection('outils').doc(id).get().then((doc) => {
-                if (doc.exists) {
-                    const data = doc.data(); // 
-                    document.getElementById('new-name').value = data.name;
-                    document.getElementById('new-category').value = data.category;
-                    document.getElementById('new-website').value = data.website;
-                    document.getElementById('new-complexity').value = data.complexity;
-                    document.getElementById('new-description').value = data.description;
+        // 3. CHARGER LA LISTE DES OUTILS
+        async function chargerOutilsAdmin() {
+            // Supabase : .from('outils').select('*') remplace db.collection('outils').get()
+            const { data: outils, error } = await db.from('outils').select('*').order('name');
 
-                    editMode = true;
-                    currentEditId = id;
-                    document.querySelector('#form-container h3').textContent = "Modifier : " + data.name;
-                    formContainer.classList.remove('hidden');
-                    window.scrollTo(0, 0);
-                }
+            if (error) {
+                console.error('❌ Erreur chargement :', error.message);
+                return;
+            }
+
+            // Mettre à jour le compteur
+            const countElement = document.getElementById('tool-count');
+            if (countElement) countElement.textContent = outils.length;
+
+            // Construire le tableau HTML
+            const outilsList = document.getElementById('outils-list');
+            outilsList.innerHTML = '';
+
+            outils.forEach((outil) => {
+                const badgeClass = categoriesCouleurs[outil.category] || 'bg-gray-100 text-gray-800';
+                outilsList.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4">
+                            ${outil.logo_url
+                                ? `<img src="${outil.logo_url}" alt="Logo" class="w-8 h-8 object-contain rounded">`
+                                : `<div class="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-gray-400 text-xs">—</div>`
+                            }
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-sm font-bold text-gray-900">${outil.name}</div>
+                            <div class="text-xs text-gray-500 truncate max-w-xs">${outil.description}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full ${badgeClass}">
+                                ${outil.category}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-right text-sm font-medium">
+                            <button onclick="preparerModification('${outil.id}')" class="text-indigo-600 hover:text-indigo-900 mr-3">
+                                ✎ Modifier
+                            </button>
+                            <button onclick="supprimerOutil('${outil.id}')" class="text-red-600 hover:text-red-900">
+                                🗑 Supprimer
+                            </button>
+                        </td>
+                    </tr>
+                `;
             });
         }
 
+        // 4. SUPPRIMER UN OUTIL
+        async function supprimerOutil(id) {
+            if (!confirm('🚨 Es-tu sûr de vouloir supprimer cet outil ? Cette action est irréversible.')) return;
 
+            // Supabase : .delete().eq('id', id) remplace doc(id).delete()
+            const { error } = await db.from('outils').delete().eq('id', id);
+
+            if (error) {
+                console.error('❌ Erreur suppression :', error.message);
+                alert('Erreur lors de la suppression : ' + error.message);
+            } else {
+                console.log('✅ Outil supprimé !');
+                chargerOutilsAdmin();
+            }
+        }
+
+        // 5. PRÉPARER LA MODIFICATION
+        async function preparerModification(id) {
+            // Supabase : .select().eq('id', id).single() remplace doc(id).get()
+            // .single() dit "je veux un seul objet, pas un tableau"
+            const { data: outil, error } = await db.from('outils').select('*').eq('id', id).single();
+
+            if (error || !outil) {
+                alert('Impossible de charger cet outil.');
+                return;
+            }
+
+            // Remplir le formulaire avec les données existantes
+            document.getElementById('new-name').value        = outil.name;
+            document.getElementById('new-category').value    = outil.category;
+            document.getElementById('new-website').value     = outil.website;
+            document.getElementById('new-complexity').value  = outil.complexity;
+            document.getElementById('new-description').value = outil.description;
+            document.getElementById('new-price').value       = outil.pro_price || '';
+            document.getElementById('new-free').checked      = outil.has_free_tier || false;
+
+            editMode = true;
+            currentEditId = id;
+            document.getElementById('form-titre').textContent = 'Modifier : ' + outil.name;
+            document.getElementById('form-container').classList.remove('hidden');
+            window.scrollTo(0, 0);
+        }
+
+        // 6. AFFICHER / CACHER LE FORMULAIRE
         const formContainer = document.getElementById('form-container');
-        const addForm = document.getElementById('add-outil-form');
-
         function toggleForm() {
             formContainer.classList.toggle('hidden');
         }
 
-        addForm.addEventListener('submit', async (e) => {
+        // 7. SOUMETTRE LE FORMULAIRE (ajout ou modification)
+        document.getElementById('add-outil-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            // On récupère les éléments sans les balises de citation
+
             const logoFile = document.getElementById('new-logo').files[0];
             const statusText = document.getElementById('upload-status');
-            
             if (logoFile) statusText.classList.remove('hidden');
 
             try {
-                // 1. On upload l'image d'abord
+                // Upload du logo si un fichier est sélectionné
                 const logoURL = await uploadLogoEtRecupererLien(logoFile);
 
-                // 2. On prépare les données (sans citations !)
-                // Dans ton addForm.addEventListener, récupère les valeurs
+                // Données de l'outil à enregistrer
                 const outilData = {
-                    name: document.getElementById('new-name').value,
-                    category: document.getElementById('new-category').value,
-                    website: document.getElementById('new-website').value,
-                    complexity: parseInt(document.getElementById('new-complexity').value),
-                    description: document.getElementById('new-description').value,
-                    // NOUVEAUX CHAMPS
-                    pro_price: document.getElementById('new-price').value || "À vérifier",
+                    name:         document.getElementById('new-name').value,
+                    category:     document.getElementById('new-category').value,
+                    website:      document.getElementById('new-website').value,
+                    complexity:   parseInt(document.getElementById('new-complexity').value),
+                    description:  document.getElementById('new-description').value,
+                    pro_price:    document.getElementById('new-price').value || 'À vérifier',
                     has_free_tier: document.getElementById('new-free').checked,
                     votes: 0
                 };
 
-                // 3. Enregistrement Firestore
+                // On ajoute l'URL du logo seulement si un fichier a été uploadé
+                if (logoURL) outilData.logo_url = logoURL;
+
                 if (editMode) {
-                    await db.collection('outils').doc(currentEditId).update(outilData);
-                    alert("✅ Outil mis à jour !");
+                    // MODIFICATION : .update().eq('id', ...) remplace doc(id).update()
+                    const { error } = await db.from('outils').update(outilData).eq('id', currentEditId);
+                    if (error) throw error;
+                    alert('✅ Outil mis à jour !');
                 } else {
-                    await db.collection('outils').add(outilData);
-                    alert("✨ Nouvel outil ajouté !");
+                    // AJOUT : on génère un ID automatique basé sur la catégorie
+                    outilData.id = genererIdOutil(outilData.category);
+                    // .insert([outilData]) remplace db.collection('outils').add()
+                    const { error } = await db.from('outils').insert([outilData]);
+                    if (error) throw error;
+                    alert('✨ Nouvel outil ajouté !');
                 }
 
                 resetForm();
+
             } catch (error) {
-                console.error("Erreur S7 :", error);
-                alert("Une erreur est survenue lors de l'enregistrement.");
+                console.error('❌ Erreur enregistrement :', error.message);
+                alert('Une erreur est survenue : ' + error.message);
             } finally {
                 statusText.classList.add('hidden');
             }
         });
 
+        // Génère un ID unique basé sur la catégorie + timestamp
+        function genererIdOutil(categorie) {
+            const prefixes = {
+                'Texte & Rédaction': 'text',
+                'Images & Design':   'img',
+                'Vidéo & Avatar':    'video',
+                'Audio & Voix':      'audio',
+                'Automatisation':    'auto',
+                'Développement':     'dev'
+            };
+            const prefix = prefixes[categorie] || 'outil';
+            return prefix + '_' + Date.now();
+        }
+
+        // 8. RÉINITIALISER LE FORMULAIRE
         function resetForm() {
-            addForm.reset();
+            document.getElementById('add-outil-form').reset();
             editMode = false;
             currentEditId = null;
-            document.querySelector('#form-container h3').textContent = "Ajouter un nouvel outil";
-            toggleForm();
+            document.getElementById('form-titre').textContent = 'Ajouter un nouvel outil';
+            formContainer.classList.add('hidden');
             chargerOutilsAdmin();
         }
-        // BOUTON DÉCONNEXION
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            auth.signOut().then(() => {
-                window.location.href = 'admin.html';
-            });
-        });
 
-    // FONCTION D'UPLOAD : Envoie l'image au Cloud Storage et récupère son URL
+        // 9. UPLOAD DU LOGO VERS SUPABASE STORAGE
         async function uploadLogoEtRecupererLien(file) {
-            if (!file) return null; // Si aucun fichier n'est sélectionné, on s'arrête là
+            if (!file) return null;
 
-            // Création d'un nom unique avec l'heure actuelle pour éviter les doublons
-            const nomFichier = Date.now() + "-" + file.name;
-            const storageRef = storage.ref("logos/" + nomFichier);
+            // Nom unique pour éviter les doublons
+            const nomFichier = Date.now() + '-' + file.name;
 
-            // On attend que l'upload soit terminé (await)
-            const snapshot = await storageRef.put(file);
-            
-            // On récupère et on renvoie l'URL publique de l'image
-            return await snapshot.ref.getDownloadURL();
+            // Supabase Storage : .from('logos').upload() remplace storage.ref().put()
+            const { error: uploadError } = await db.storage.from('logos').upload(nomFichier, file);
+            if (uploadError) throw uploadError;
+
+            // Récupérer l'URL publique de l'image
+            // Supabase : .getPublicUrl() remplace snapshot.ref.getDownloadURL()
+            const { data } = db.storage.from('logos').getPublicUrl(nomFichier);
+            return data.publicUrl;
         }
 
+        // 10. BOUTON DÉCONNEXION
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            // Supabase : auth.signOut() est identique à Firebase
+            await db.auth.signOut();
+            window.location.href = 'admin.html';
+        });
+
+
+        // ── EXPORT ────────────────────────────────────────────────────────────
+
+        // 11. EXPORTER TOUS LES OUTILS EN JSON
+        // On télécharge un fichier JSON avec tous les outils de la base.
+        // Utile pour faire une sauvegarde ou voir quels logos sont manquants.
+        async function exporterOutils() {
+            const { data: outils, error } = await db.from('outils').select('*').order('name');
+
+            if (error) {
+                alert('Erreur lors de l\'export : ' + error.message);
+                return;
+            }
+
+            // Créer le contenu JSON formaté (indenté pour être lisible)
+            const contenuJSON = JSON.stringify(outils, null, 2);
+
+            // Créer un "faux lien" pour déclencher le téléchargement
+            const blob = new Blob([contenuJSON], { type: 'application/json' });
+            const url  = URL.createObjectURL(blob);
+            const lien = document.createElement('a');
+            lien.href     = url;
+            lien.download = 'outils-export-' + new Date().toISOString().slice(0, 10) + '.json';
+            lien.click();
+
+            // Libérer la mémoire
+            URL.revokeObjectURL(url);
+        }
+
+
+        // ── IMPORT LOGOS EN MASSE ──────────────────────────────────────────────
+
+        // Liste des outils chargée en mémoire pour la correspondance
+        let outilsEnMemoire = [];
+
+        // 12. AFFICHER / CACHER LE PANNEAU D'IMPORT DE LOGOS
+        function toggleImportLogos() {
+            const panneau = document.getElementById('import-logos-container');
+            panneau.classList.toggle('hidden');
+
+            // Réinitialiser le panneau à chaque ouverture
+            if (!panneau.classList.contains('hidden')) {
+                document.getElementById('logos-batch').value = '';
+                document.getElementById('analyse-resultats').classList.add('hidden');
+                document.getElementById('import-progression').classList.add('hidden');
+                document.getElementById('btn-lancer-import').disabled = true;
+                fichiersPrets = [];
+            }
+        }
+
+        // 13. NORMALISER UN NOM pour la correspondance
+        // Retire accents, espaces, tirets, points → tout en minuscules
+        // Exemple : "Adobe Firefly" → "adobefirefly"
+        function normaliserNom(texte) {
+            return texte
+                .toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // retire les accents
+                .replace(/[^a-z0-9]/g, '');                       // garde seulement lettres et chiffres
+        }
+
+        // Stocker les fichiers analysés et prêts à être importés
+        let fichiersPrets = [];
+
+        // 14. ANALYSER LES FICHIERS SÉLECTIONNÉS (avant d'importer)
+        document.getElementById('logos-batch').addEventListener('change', async (e) => {
+            const fichiers = Array.from(e.target.files);
+            if (fichiers.length === 0) return;
+
+            // Charger la liste des outils si pas encore fait
+            if (outilsEnMemoire.length === 0) {
+                const { data } = await db.from('outils').select('id, name, logo_url');
+                outilsEnMemoire = data || [];
+            }
+
+            fichiersPrets = [];
+            const lignes = [];
+            let nbTrouves = 0, nbIntrouvables = 0;
+
+            fichiers.forEach(fichier => {
+                // Nom du fichier sans extension
+                const nomSansExtension = fichier.name.replace(/\.[^.]+$/, '');
+                const nomNormalise     = normaliserNom(nomSansExtension);
+
+                // Chercher l'outil correspondant dans la liste
+                const outilTrouve = outilsEnMemoire.find(o =>
+                    normaliserNom(o.name) === nomNormalise ||
+                    normaliserNom(o.id)   === nomNormalise ||
+                    normaliserNom(o.name).includes(nomNormalise) ||
+                    nomNormalise.includes(normaliserNom(o.name))
+                );
+
+                if (outilTrouve) {
+                    nbTrouves++;
+                    const dejaLogo = outilTrouve.logo_url ? ' (remplacera le logo existant)' : '';
+                    lignes.push(`<div class="flex items-center gap-2 text-green-700 bg-green-50 px-2 py-1 rounded">
+                        <span>✅</span>
+                        <span><strong>${fichier.name}</strong> → ${outilTrouve.name}${dejaLogo}</span>
+                    </div>`);
+                    fichiersPrets.push({ fichier, outil: outilTrouve });
+                } else {
+                    nbIntrouvables++;
+                    lignes.push(`<div class="flex items-center gap-2 text-red-600 bg-red-50 px-2 py-1 rounded">
+                        <span>❌</span>
+                        <span><strong>${fichier.name}</strong> → aucun outil trouvé</span>
+                    </div>`);
+                }
+            });
+
+            // Afficher les résultats
+            document.getElementById('analyse-liste').innerHTML = lignes.join('');
+            document.getElementById('analyse-resume').innerHTML =
+                `<span class="text-green-600">${nbTrouves} logo(s) prêt(s) à importer</span>` +
+                (nbIntrouvables > 0 ? ` · <span class="text-red-500">${nbIntrouvables} fichier(s) ignoré(s)</span>` : '');
+            document.getElementById('analyse-resultats').classList.remove('hidden');
+
+            // Activer le bouton d'import seulement s'il y a des correspondances
+            document.getElementById('btn-lancer-import').disabled = (nbTrouves === 0);
+        });
+
+        // 15. LANCER L'IMPORT DES LOGOS EN MASSE
+        async function lancerImportLogos() {
+            if (fichiersPrets.length === 0) return;
+
+            const total       = fichiersPrets.length;
+            const barre       = document.getElementById('import-barre');
+            const compteur    = document.getElementById('import-compteur');
+            const progression = document.getElementById('import-progression');
+            const btnLancer   = document.getElementById('btn-lancer-import');
+
+            progression.classList.remove('hidden');
+            btnLancer.disabled = true;
+
+            let succes = 0, echecs = 0;
+
+            for (let i = 0; i < total; i++) {
+                const { fichier, outil } = fichiersPrets[i];
+
+                try {
+                    // Upload vers Supabase Storage avec un nom basé sur l'ID de l'outil
+                    const extension  = fichier.name.split('.').pop();
+                    const nomFichier = outil.id + '.' + extension;
+
+                    // Supabase Storage : upsert: true remplace si le fichier existe déjà
+                    const { error: uploadError } = await db.storage
+                        .from('logos')
+                        .upload(nomFichier, fichier, { upsert: true });
+
+                    if (uploadError) throw uploadError;
+
+                    // Récupérer l'URL publique
+                    const { data: urlData } = db.storage.from('logos').getPublicUrl(nomFichier);
+
+                    // Mettre à jour la base de données avec la nouvelle URL
+                    const { error: updateError } = await db.from('outils')
+                        .update({ logo_url: urlData.publicUrl })
+                        .eq('id', outil.id);
+
+                    if (updateError) throw updateError;
+
+                    succes++;
+                } catch (err) {
+                    console.error('❌ Erreur pour ' + fichier.name + ' :', err.message);
+                    echecs++;
+                }
+
+                // Mettre à jour la barre de progression
+                const pourcentage = Math.round(((i + 1) / total) * 100);
+                barre.style.width    = pourcentage + '%';
+                compteur.textContent = (i + 1) + ' / ' + total;
+            }
+
+            // Résultat final
+            alert(`Import terminé !\n✅ ${succes} logo(s) importé(s) avec succès.` +
+                  (echecs > 0 ? `\n❌ ${echecs} échec(s).` : ''));
+
+            // Recharger la liste et réinitialiser le panneau
+            outilsEnMemoire = [];
+            chargerOutilsAdmin();
+            toggleImportLogos();
+        }
+
+        // 16. DRAG & DROP sur la zone de dépôt
+        const dropZone = document.getElementById('drop-zone');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-blue-500', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+
+            // Transférer les fichiers glissés vers l'input caché pour déclencher l'analyse
+            const input      = document.getElementById('logos-batch');
+            const dataTransfer = new DataTransfer();
+            Array.from(e.dataTransfer.files).forEach(f => dataTransfer.items.add(f));
+            input.files = dataTransfer.files;
+            input.dispatchEvent(new Event('change'));
+        });
     </script>
 </body>
 </html>

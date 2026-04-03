@@ -5,18 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recommandeur d'Outils IA</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <script src="config.js"></script>
 
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <!-- SDK Supabase via CDN (remplace Firebase) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Nos clés Supabase (fichier local protégé par .gitignore) -->
+    <script src="config.js"></script>
 </head>
 
 <body class="bg-gray-50 min-h-screen p-8">
     <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
-        
+
         <h1 class="text-4xl font-bold text-gray-900 mb-2">Trouvez l'outil IA parfait</h1>
-        <p class="text-gray-600 mb-8">Répondez à 3 questions simples et découvrez l'outil qui vous correspond</p>
+        <p class="text-gray-600 mb-4">Répondez à 3 questions simples et découvrez l'outil qui vous correspond</p>
+
+        <!-- Message d'erreur visible si la base est vide ou inaccessible -->
+        <p id="erreur-chargement" class="hidden text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3 mb-4"></p>
 
         <form class="space-y-6">
             <div>
@@ -57,10 +61,11 @@
                     <option value="long">Long (5h+)</option>
                 </select>
             </div>
+
             <div class="flex items-center space-x-3 mb-6 p-3 bg-blue-50 rounded-md border border-blue-100">
                 <input type="checkbox" id="free-only" class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
                 <label for="free-only" class="text-sm font-medium text-blue-900 cursor-pointer">
-                    Afficher uniquement les outils avec une version **Gratuite / Freemium**
+                    Afficher uniquement les outils avec une version Gratuite / Freemium
                 </label>
             </div>
 
@@ -76,107 +81,134 @@
     </div>
 
     <script>
-    // 1. INITIALISATION
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+        // 1. INITIALISATION SUPABASE
+        // createClient vient du CDN chargé dans le <head>
+        const { createClient } = supabase;
+        const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // 2. CHARGEMENT DES DONNÉES DEPUIS FIRESTORE
-    let outils = [];
-    db.collection('outils').get().then((snapshot) => {
-            outils = [];
-            snapshot.forEach(doc => {
-                outils.push(doc.data());
-            });
+        // 2. CHARGEMENT DES DONNÉES DEPUIS SUPABASE
+        // Contrairement à Firebase, Supabase retourne directement un tableau d'objets
+        let outils = [];
+
+        async function chargerOutils() {
+            const { data, error } = await db.from('outils').select('*');
+
+            if (error) {
+                // On affiche l'erreur directement sur la page pour faciliter le debug
+                console.error('❌ Erreur Supabase :', error.message);
+                document.getElementById('erreur-chargement').textContent =
+                    '⚠️ Impossible de charger les outils : ' + error.message +
+                    ' — Vérifie que la table "outils" existe dans Supabase (lance supabase-setup.sql).';
+                document.getElementById('erreur-chargement').classList.remove('hidden');
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                document.getElementById('erreur-chargement').textContent =
+                    '⚠️ La base de données est vide. Lance import.html pour importer les outils.';
+                document.getElementById('erreur-chargement').classList.remove('hidden');
+                return;
+            }
+
+            outils = data;
             console.log('✅ Outils chargés :', outils.length);
-        })
-        .catch(error => console.error('❌ Erreur Firestore :', error));
-
-    // 3. L'ALGORITHME DE RECOMMANDATION
-    function recommander(domaine, technicite, temps, freeOnly) {
-    let outils_recommandes = [];
-    
-    // Ton mapping existant 
-    const categorieMapping = {
-        'redaction': 'Texte & Rédaction',
-        'images': 'Images & Design',
-        'video': 'Vidéo & Avatar',
-        'audio': 'Audio & Voix',
-        'automatisation': 'Automatisation',
-        'developpement': 'Développement'
-    };
-
-    const complexite_max = { 'debutant': 3, 'intermediaire': 6, 'expert': 10 };
-    const categorie_attendue = categorieMapping[domaine];
-    
-    for (let outil of outils) {
-        const matchCategorie = outil.category === categorie_attendue;
-        const matchComplexite = outil.complexity <= complexite_max[technicite];
-        
-        // FILTRE S8 : Si freeOnly est coché, on vérifie has_free_tier. Sinon, on laisse passer.
-        const matchFree = freeOnly ? outil.has_free_tier === true : true;
-
-        if (matchCategorie && matchComplexite && matchFree) {
-            outils_recommandes.push(outil);
         }
-    }
-    
-    // Tri par score ou votes 
-    outils_recommandes.sort((a, b) => (b.votes || 0) - (a.votes || 0));
-    return outils_recommandes.slice(0, 3);
-}
 
-    // 4. ÉCOUTEUR DU BOUTON
-    const bouton = document.getElementById('bouton');
-    const resultat = document.getElementById('resultat');
-    const texteResultat = document.getElementById('texte-resultat');
+        // On charge les outils au démarrage de la page
+        chargerOutils();
 
-    bouton.addEventListener('click', function() {
-    const domaine = document.getElementById('domaine').value;
-    const technicite = document.getElementById('technicite').value;
-    const temps = document.getElementById('temps').value;
-    // On récupère si la case est cochée
-    const freeOnly = document.getElementById('free-only').checked;
+        // 3. L'ALGORITHME DE RECOMMANDATION (identique à avant)
+        function recommander(domaine, technicite, temps, freeOnly) {
+            let outils_recommandes = [];
 
-    if (domaine === '' || technicite === '' || temps === '') {
-        alert('⚠️ Merci de répondre à toutes les questions !');
-        return;
-    }
+            const categorieMapping = {
+                'redaction': 'Texte & Rédaction',
+                'images': 'Images & Design',
+                'video': 'Vidéo & Avatar',
+                'audio': 'Audio & Voix',
+                'automatisation': 'Automatisation',
+                'developpement': 'Développement'
+            };
 
-    const resultat = document.getElementById('resultat');
-    const texteResultat = document.getElementById('texte-resultat');
+            const complexite_max = { 'debutant': 3, 'intermediaire': 6, 'expert': 10 };
+            const categorie_attendue = categorieMapping[domaine];
 
-    // APPELER LA FONCTION DE RECOMMANDATION (on passe freeOnly en paramètre)
-    const recommandations = recommander(domaine, technicite, temps, freeOnly);
+            for (let outil of outils) {
+                const matchCategorie = outil.category === categorie_attendue;
+                const matchComplexite = outil.complexity <= complexite_max[technicite];
+                const matchFree = freeOnly ? outil.has_free_tier === true : true;
 
-    if (recommandations.length === 0) {
-        texteResultat.innerHTML = "<p class='text-gray-600 italic'>❌ Aucun outil trouvé pour ces critères. Essaie d'élargir ta recherche ou de décocher le filtre gratuit.</p>";
-    } else {
-        let html = "<h3 class='text-xl font-bold mb-4 text-green-900'>🎯 Top outils recommandés :</h3>";
-        for (let outil of recommandations) {
-            // On affiche le prix s'il existe, sinon un texte par défaut
-            const prixAffiche = outil.pro_price || "Prix non renseigné";
-            
-            html += `
-                <div class="mb-4 p-4 bg-white border border-green-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-                    <div class="flex justify-between items-start mb-2">
-                        <p class="font-bold text-lg text-blue-900">${outil.name}</p>
-                        <span class="text-[10px] font-bold px-2 py-1 bg-blue-100 text-blue-700 rounded uppercase">
-                            Pro : ${prixAffiche}
-                        </span>
-                    </div>
-                    <p class="text-sm text-gray-700 mb-3">${outil.description}</p>
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs text-gray-500">Complexité: ${outil.complexity}/10</span>
-                        <a href="${outil.website}" target="_blank" class="text-blue-600 font-bold text-sm hover:underline">Voir le site →</a>
-                    </div>
-                </div>
-            `;
+                if (matchCategorie && matchComplexite && matchFree) {
+                    outils_recommandes.push(outil);
+                }
+            }
+
+            // Tri par votes puis par quality_score
+            outils_recommandes.sort((a, b) => (b.votes || 0) - (a.votes || 0));
+            return outils_recommandes.slice(0, 3);
         }
-        texteResultat.innerHTML = html;
-    }
 
-    resultat.classList.remove('hidden');
-});
+        // 4. ÉCOUTEUR DU BOUTON
+        document.getElementById('bouton').addEventListener('click', function() {
+            const domaine = document.getElementById('domaine').value;
+            const technicite = document.getElementById('technicite').value;
+            const temps = document.getElementById('temps').value;
+            const freeOnly = document.getElementById('free-only').checked;
+
+            if (domaine === '' || technicite === '' || temps === '') {
+                alert('⚠️ Merci de répondre à toutes les questions !');
+                return;
+            }
+
+            const resultat = document.getElementById('resultat');
+            const texteResultat = document.getElementById('texte-resultat');
+            const recommandations = recommander(domaine, technicite, temps, freeOnly);
+
+            if (recommandations.length === 0) {
+                texteResultat.innerHTML = "<p class='text-gray-600 italic'>❌ Aucun outil trouvé pour ces critères. Essaie d'élargir ta recherche ou de décocher le filtre gratuit.</p>";
+            } else {
+                let html = "<h3 class='text-xl font-bold mb-4 text-green-900'>🎯 Top outils recommandés :</h3>";
+                for (let outil of recommandations) {
+                    const prixAffiche = outil.pro_price || "Prix non renseigné";
+
+                    // Logo : si l'outil a une URL de logo, on l'affiche, sinon on affiche les initiales
+                    const logoHTML = outil.logo_url
+                        ? `<img src="${outil.logo_url}" alt="Logo ${outil.name}"
+                               class="w-10 h-10 object-contain rounded"
+                               onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                           <div class="w-10 h-10 rounded bg-blue-100 text-blue-700 font-bold text-sm
+                                       items-center justify-center hidden" style="min-width:2.5rem;">
+                               ${outil.name.charAt(0)}
+                           </div>`
+                        : `<div class="w-10 h-10 rounded bg-blue-100 text-blue-700 font-bold text-sm
+                                      flex items-center justify-center" style="min-width:2.5rem;">
+                               ${outil.name.charAt(0)}
+                           </div>`;
+
+                    html += `
+                        <div class="mb-4 p-4 bg-white border border-green-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex items-center gap-3">
+                                    ${logoHTML}
+                                    <p class="font-bold text-lg text-blue-900">${outil.name}</p>
+                                </div>
+                                <span class="text-[10px] font-bold px-2 py-1 bg-blue-100 text-blue-700 rounded uppercase">
+                                    Pro : ${prixAffiche}
+                                </span>
+                            </div>
+                            <p class="text-sm text-gray-700 mb-3">${outil.description}</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-gray-500">Complexité: ${outil.complexity}/10</span>
+                                <a href="${outil.website}" target="_blank" class="text-blue-600 font-bold text-sm hover:underline">Voir le site →</a>
+                            </div>
+                        </div>
+                    `;
+                }
+                texteResultat.innerHTML = html;
+            }
+
+            resultat.classList.remove('hidden');
+        });
     </script>
 </body>
 </html>

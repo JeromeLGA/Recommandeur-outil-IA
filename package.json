@@ -1,0 +1,8 @@
+{
+    "name": "recommandeur-outils-ia",
+    "version": "1.0.0",
+    "description": "Recommandeur d'outils IA pour chargés de communication",
+    "scripts": {
+        "build": "node build.js"
+    }
+}

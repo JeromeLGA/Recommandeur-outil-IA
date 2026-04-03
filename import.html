@@ -2,73 +2,267 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Import des outils vers Firestore</title>
-</head>
-<body>
-    <h1>Import des outils IA vers Firestore</h1>
-    <button id="btn-import">Lancer l'import</button>
-    <div id="log" style="margin-top: 20px; font-family: monospace;"></div>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import / Mise à jour des outils IA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Firebase via CDN (version "compat" = compatible navigateur simple) -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <!-- SDK Supabase via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Nos clés Supabase (fichier local protégé par .gitignore) -->
+    <script src="config.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-8">
+
+    <div class="max-w-2xl mx-auto">
+
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">Import / Mise à jour des outils IA</h1>
+        <p class="text-gray-500 text-sm mb-6">
+            Utilise cette page pour importer ou mettre à jour les outils dans Supabase.
+            <strong>Les votes existants ne seront jamais écrasés.</strong>
+        </p>
+
+        <!-- ÉTAPE 1 : Source des données -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="font-bold text-gray-700 mb-4">1. Choisir la source des données</h2>
+            <div class="space-y-3">
+
+                <label class="flex items-center space-x-3 cursor-pointer p-3 border rounded-lg hover:bg-blue-50 transition">
+                    <input type="radio" name="source" value="local" checked class="text-blue-600">
+                    <div>
+                        <p class="font-semibold text-gray-800">Depuis <code class="bg-gray-100 px-1 rounded">data.json</code> (fichier local du projet)</p>
+                        <p class="text-xs text-gray-500">Importe directement le fichier data.json du projet</p>
+                    </div>
+                </label>
+
+                <label class="flex items-center space-x-3 cursor-pointer p-3 border rounded-lg hover:bg-blue-50 transition">
+                    <input type="radio" name="source" value="upload" class="text-blue-600">
+                    <div class="flex-1">
+                        <p class="font-semibold text-gray-800">Uploader un fichier JSON</p>
+                        <p class="text-xs text-gray-500">Sélectionne un fichier .json depuis ton ordinateur</p>
+                    </div>
+                </label>
+
+                <div id="upload-zone" class="hidden ml-6">
+                    <input type="file" id="json-file" accept=".json"
+                        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mt-2">
+                    <p id="file-preview" class="text-xs text-green-600 mt-1 hidden"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ÉTAPE 2 : Mode d'import -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="font-bold text-gray-700 mb-4">2. Choisir le mode d'import</h2>
+            <div class="space-y-3">
+
+                <label class="flex items-center space-x-3 cursor-pointer p-3 border-2 border-blue-300 bg-blue-50 rounded-lg hover:bg-blue-100 transition">
+                    <input type="radio" name="mode" value="upsert" checked class="text-blue-600">
+                    <div>
+                        <p class="font-semibold text-blue-800">
+                            Mise à jour intelligente
+                            <span class="text-xs bg-blue-200 text-blue-700 px-2 py-0.5 rounded-full ml-1">Recommandé</span>
+                        </p>
+                        <p class="text-xs text-blue-600">
+                            Met à jour les infos de chaque outil mais <strong>conserve les votes existants</strong>.
+                        </p>
+                    </div>
+                </label>
+
+                <label class="flex items-center space-x-3 cursor-pointer p-3 border border-red-200 rounded-lg hover:bg-red-50 transition">
+                    <input type="radio" name="mode" value="overwrite" class="text-red-600">
+                    <div>
+                        <p class="font-semibold text-red-800">Écrasement complet</p>
+                        <p class="text-xs text-red-600">
+                            ⚠️ Remplace TOUT (y compris les votes). À utiliser seulement pour un reset total.
+                        </p>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- ÉTAPE 3 : Lancer -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="font-bold text-gray-700 mb-4">3. Lancer l'import</h2>
+            <button id="btn-preview" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-5 py-2 rounded mr-3 transition">
+                Prévisualiser les données
+            </button>
+            <button id="btn-import" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded transition opacity-50 cursor-not-allowed" disabled>
+                Lancer l'import
+            </button>
+        </div>
+
+        <!-- PRÉVISUALISATION -->
+        <div id="preview-zone" class="hidden bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="font-bold text-gray-700 mb-3">Prévisualisation</h2>
+            <div id="preview-content" class="text-sm text-gray-600"></div>
+        </div>
+
+        <!-- LOG -->
+        <div id="log-zone" class="hidden bg-gray-900 rounded-lg p-6 mb-6">
+            <h2 class="font-bold text-green-400 mb-3 text-sm uppercase tracking-wide">Log d'import</h2>
+            <div id="log" class="font-mono text-xs text-green-300 space-y-1 max-h-80 overflow-y-auto"></div>
+        </div>
+
+    </div>
 
     <script>
-        // 1. CONFIG FIREBASE (tes clés personnelles)
-        const firebaseConfig = {
-            apiKey: "AIzaSyBmWleaBTUeisDoFHXX1o2P1_5oFVBYDjA",
-            authDomain: "recommandeur-outils-ia.firebaseapp.com",
-            projectId: "recommandeur-outils-ia",
-            storageBucket: "recommandeur-outils-ia.firebasestorage.app",
-            messagingSenderId: "626381880889",
-            appId: "1:626381880889:web:64f59fd42540c8e93d57e8"
-        };
+        // 1. INITIALISATION SUPABASE
+        const { createClient } = supabase;
+        const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // 2. INITIALISER FIREBASE
-        firebase.initializeApp(firebaseConfig);
+        // Afficher/cacher le champ upload
+        document.querySelectorAll('input[name="source"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                document.getElementById('upload-zone').classList.toggle('hidden', this.value !== 'upload');
+            });
+        });
 
-        // 3. CRÉER UNE RÉFÉRENCE À FIRESTORE
-        let db = firebase.firestore();
+        // Afficher le nom du fichier sélectionné
+        document.getElementById('json-file').addEventListener('change', function() {
+            const preview = document.getElementById('file-preview');
+            if (this.files[0]) {
+                preview.textContent = '✅ Fichier sélectionné : ' + this.files[0].name;
+                preview.classList.remove('hidden');
+            }
+        });
 
-        // 4. ZONE DE LOG (pour afficher les messages à l'écran)
-        let logDiv = document.getElementById('log');
+        // 2. CHARGEMENT DES DONNÉES (data.json local ou fichier uploadé)
+        async function chargerDonnees() {
+            const source = document.querySelector('input[name="source"]:checked').value;
 
-        function afficherLog(message) {
-            logDiv.innerHTML += message + '<br>';
+            if (source === 'local') {
+                const response = await fetch('data.json');
+                if (!response.ok) throw new Error('Impossible de charger data.json');
+                return await response.json();
+            } else {
+                const fichier = document.getElementById('json-file').files[0];
+                if (!fichier) throw new Error('Aucun fichier sélectionné');
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try { resolve(JSON.parse(e.target.result)); }
+                        catch { reject(new Error('Fichier JSON invalide')); }
+                    };
+                    reader.onerror = () => reject(new Error('Erreur de lecture'));
+                    reader.readAsText(fichier);
+                });
+            }
         }
 
-        // 5. BOUTON D'IMPORT
-        document.getElementById('btn-import').addEventListener('click', function() {
-            afficherLog('⏳ Chargement du fichier data.json...');
+        // 3. PRÉVISUALISATION
+        document.getElementById('btn-preview').addEventListener('click', async () => {
+            const previewZone = document.getElementById('preview-zone');
+            const previewContent = document.getElementById('preview-content');
+            try {
+                const donnees = await chargerDonnees();
 
-            // 6. CHARGER LE JSON LOCAL
-            fetch('data.json')
-                .then(response => response.json())
-                .then(data => {
-                    afficherLog('✅ ' + data.length + ' outils trouvés dans data.json');
-                    afficherLog('⏳ Import en cours...');
-
-                    // 7. ENVOYER CHAQUE OUTIL DANS FIRESTORE
-                    let compteur = 0;
-
-                    for (let outil of data) {
-                        db.collection('outils').doc(outil.id).set(outil)
-                            .then(() => {
-                                compteur++;
-                                afficherLog('✅ ' + compteur + ' - ' + outil.name + ' importé');
-
-                                if (compteur === data.length) {
-                                    afficherLog('🎉 IMPORT TERMINÉ ! ' + compteur + ' outils dans Firestore');
-                                }
-                            })
-                            .catch(error => {
-                                afficherLog('❌ Erreur pour ' + outil.name + ' : ' + error.message);
-                            });
-                    }
-                })
-                .catch(error => {
-                    afficherLog('❌ Erreur de chargement du JSON : ' + error.message);
+                // Compter par catégorie
+                const compteurs = {};
+                donnees.forEach(o => {
+                    compteurs[o.category || 'Sans catégorie'] = (compteurs[o.category] || 0) + 1;
                 });
+
+                let html = `<p class="font-bold text-gray-800 mb-3">📦 ${donnees.length} outils détectés :</p><ul class="space-y-1">`;
+                for (const [cat, nb] of Object.entries(compteurs)) {
+                    html += `<li class="flex justify-between"><span>${cat}</span><span class="font-bold text-blue-600">${nb} outils</span></li>`;
+                }
+                html += `</ul><p class="mt-4 text-xs text-gray-400">Clique sur "Lancer l'import" pour envoyer vers Supabase.</p>`;
+
+                previewContent.innerHTML = html;
+                previewZone.classList.remove('hidden');
+
+                // Activer le bouton d'import
+                const btnImport = document.getElementById('btn-import');
+                btnImport.disabled = false;
+                btnImport.classList.remove('opacity-50', 'cursor-not-allowed');
+
+                // Garder les données en mémoire
+                window._donneesAImporter = donnees;
+
+            } catch (error) {
+                previewContent.innerHTML = `<p class="text-red-600">❌ Erreur : ${error.message}</p>`;
+                previewZone.classList.remove('hidden');
+            }
+        });
+
+        // 4. IMPORT
+        function afficherLog(message) {
+            const logDiv = document.getElementById('log');
+            document.getElementById('log-zone').classList.remove('hidden');
+            logDiv.innerHTML += `<div>${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        document.getElementById('btn-import').addEventListener('click', async () => {
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            const donnees = window._donneesAImporter;
+
+            if (!donnees) {
+                alert('Clique d\'abord sur "Prévisualiser les données"');
+                return;
+            }
+            if (mode === 'overwrite') {
+                if (!confirm('⚠️ Mode écrasement : les votes existants seront perdus. Confirmer ?')) return;
+            }
+
+            document.getElementById('btn-import').disabled = true;
+            document.getElementById('btn-preview').disabled = true;
+            afficherLog(`⏳ Démarrage (mode : ${mode === 'upsert' ? 'mise à jour intelligente' : 'écrasement complet'})...`);
+            afficherLog(`📦 ${donnees.length} outils à traiter`);
+
+            let ok = 0;
+            let erreurs = 0;
+
+            for (const outil of donnees) {
+                try {
+                    if (mode === 'upsert') {
+                        // On récupère les votes existants pour les conserver
+                        // Supabase : .select('votes').eq('id', ...).single()
+                        const { data: existant } = await db
+                            .from('outils')
+                            .select('votes')
+                            .eq('id', outil.id)
+                            .single();
+
+                        const votesConserves = existant?.votes ?? 0;
+                        const estNouveau = existant === null;
+
+                        // upsert = insert si inexistant, update si existant (basé sur la clé primaire 'id')
+                        const { error } = await db
+                            .from('outils')
+                            .upsert({ ...outil, votes: votesConserves });
+
+                        if (error) throw error;
+
+                        if (estNouveau) {
+                            afficherLog(`✨ Ajouté (nouveau) : ${outil.name}`);
+                        } else {
+                            afficherLog(`🔄 Mis à jour : ${outil.name} (votes conservés : ${votesConserves})`);
+                        }
+
+                    } else {
+                        // Écrasement complet : on envoie tel quel avec votes à 0
+                        const { error } = await db
+                            .from('outils')
+                            .upsert({ ...outil, votes: outil.votes ?? 0 });
+
+                        if (error) throw error;
+                        afficherLog(`🔁 Écrasé : ${outil.name}`);
+                    }
+                    ok++;
+
+                } catch (error) {
+                    afficherLog(`❌ Erreur pour ${outil.name} : ${error.message}`);
+                    erreurs++;
+                }
+            }
+
+            afficherLog(`---`);
+            afficherLog(`🎉 Import terminé ! ${ok} succès / ${erreurs} erreur(s)`);
+
+            document.getElementById('btn-import').disabled = false;
+            document.getElementById('btn-preview').disabled = false;
         });
     </script>
 </body>
