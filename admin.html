@@ -41,9 +41,10 @@
         const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // 2. SI L'UTILISATEUR EST DÉJÀ CONNECTÉ → aller directement au dashboard
-        // getSession() vérifie si une session existe déjà dans le navigateur
-        db.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
+        // On utilise INITIAL_SESSION (plus fiable que getSession() en production)
+        // pour éviter la boucle admin → dashboard → admin sur Vercel
+        db.auth.onAuthStateChange((event, session) => {
+            if (event === 'INITIAL_SESSION' && session) {
                 window.location.href = 'dashboard.html';
             }
         });

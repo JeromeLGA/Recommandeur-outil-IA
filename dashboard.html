@@ -168,20 +168,28 @@
         // La bonne pratique : getSession() pour la vérification initiale,
         // onAuthStateChange() uniquement pour détecter la déconnexion.
 
-        db.auth.getSession().then(({ data: { session } }) => {
-            if (!session) {
-                // Pas de session → retour à la page de connexion
-                window.location.href = 'admin.html';
-            } else {
-                // Session valide → on affiche le dashboard
-                document.getElementById('welcome-message').classList.remove('hidden');
-                chargerOutilsAdmin();
-            }
-        });
+        // POURQUOI onAuthStateChange avec INITIAL_SESSION et pas getSession() ?
+        //
+        // En production (Vercel), getSession() peut retourner null pendant
+        // un bref instant le temps que Supabase finisse d'initialiser la session
+        // depuis le localStorage. Cela déclenchait la boucle dashboard → admin → dashboard.
+        //
+        // INITIAL_SESSION est un événement spécial qui se déclenche UNE SEULE FOIS
+        // quand Supabase a fini d'initialiser — avec la vraie valeur de session.
+        // C'est la méthode recommandée en production.
 
-        // On écoute uniquement la déconnexion pour rediriger si besoin
         db.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_OUT') {
+            if (event === 'INITIAL_SESSION') {
+                if (!session) {
+                    // Pas de session → retour à la page de connexion
+                    window.location.href = 'admin.html';
+                } else {
+                    // Session valide → on affiche le dashboard
+                    document.getElementById('welcome-message').classList.remove('hidden');
+                    chargerOutilsAdmin();
+                }
+            } else if (event === 'SIGNED_OUT') {
+                // L'admin a cliqué sur "Déconnexion"
                 window.location.href = 'admin.html';
             }
         });
